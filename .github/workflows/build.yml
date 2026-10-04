@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -23,7 +23,11 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
+      - name: Accept Android SDK licenses
+        run: |
+          sudo mkdir -p "$ANDROID_HOME/licenses"
+          printf "\n24333f8a63b6825ea9c5514f83c2829b004d1fee\nd56f5187479451eabf01fb78af6dfcb131a6481e\n8933bad161af4178b1185d1a37fbf41ea5269c55\n" | sudo tee "$ANDROID_HOME/licenses/android-sdk-license" > /dev/null
+          printf "\n84831b9409646a918e30573bab4c9c91346d8abd\n" | sudo tee "$ANDROID_HOME/licenses/android-sdk-preview-license" > /dev/null
 
       - uses: gradle/actions/setup-gradle@v4
         with:
