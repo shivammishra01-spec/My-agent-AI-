@@ -122,6 +122,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
     <select id="lang" aria-label="Voice language" style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px"><option value="hi-IN">Hindi / Hinglish voice</option><option value="en-US">English voice</option></select>
     <button class="btn" style="padding:9px 16px">Save</button>
    </form>
+   <label class="note" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="wake"> "Hi Agent" bolne par hi suno (Hey Siri jaisa)</label>
    <p class="note">AI mode: key daalne ke baad jo bhi bologe, agent samajhkar sites open/search karega. Key sirf is browser mein save hoti hai.</p>
    <div class="view" id="view">
     <div class="vh"><span id="vt"></span><button id="vo">Open tab</button><button id="vx">Close</button></div>
@@ -159,7 +160,8 @@ iframe{flex:1;border:0;background:#fff;width:100%}
  function find(name){name=name.toLowerCase().trim();return sites.filter(function(s){return s.n.toLowerCase()===name})[0]||sites.filter(function(s){return s.n.toLowerCase().indexOf(name)>-1||name.indexOf(s.n.toLowerCase())>-1})[0]}
 
  /* ---------- chat ---------- */
- var log=$("log"),listening=false,rec=null,speaking=false,voiceOut=load("agent.voice",true),chat=[];
+ var log=$("log"),listening=false,rec=null,speaking=false,voiceOut=load("agent.voice",true),chat=[],wakeOn=load("agent.wake",true),awakeUntil=0,wl=null;
+ var WAKE=/^(?:(?:hi|hey|hello|ok|okay|हाय|हे|हेलो|हैलो|ओके)[\s,]*)?(?:agent|एजेंट|एजेन्ट|ऐजेंट)(?=[\s,.!?]|$)[\s,.!?]*/i;
  function speak(t){
   if(!window.speechSynthesis)return;
   try{
@@ -186,7 +188,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
  function engineByName(n){return find(n)&&find(n).s?find(n):null}
 
  var JOKES=["Why do programmers prefer dark mode? Light attracts bugs.","I would tell you a UDP joke, but you might not get it.","There are 10 kinds of people: those who know binary and those who don't."];
- var HELP="Commands I understand:\n• open <site> — launch a site in a new tab\n• view <site> — show it inside this page\n• search <words> on <site> — e.g. search lofi on youtube\n• play <song> — YouTube search\n• add <name> <address> — save a new site\n• remove <site> — delete a saved site\n• call <name or number> — opens the dialer\n• whatsapp <name or number> <message>\n• save <name> <number> — save a contact\n• calc 12*(3+4)\n• time, date, joke, note <text>, notes\n• open all — launch every saved site\n• clear";
+ var HELP="Commands I understand:\n• open <site> — launch a site in a new tab\n• view <site> — show it inside this page\n• search <words> on <site> — e.g. search lofi on youtube\n• play <song> — YouTube search\n• add <name> <address> — save a new site\n• remove <site> — delete a saved site\n• timer 5 minutes / remind me in 10 minutes to call mom\n• navigate to <place> / weather in <city>\n• call <name or number> — opens the dialer\n• whatsapp <name or number> <message>\n• save <name> <number> — save a contact\n• calc 12*(3+4)\n• time, date, joke, note <text>, notes\n• open all — launch every saved site\n• clear";
 
  function run(raw){
   var t=raw.trim();if(!t)return;
@@ -207,6 +209,10 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   if(l==="notes"){var ns=load("agent.notes",[]);return say(ns.length?ns.map(function(x,i){return (i+1)+". "+x}).join("\n"):"No notes yet. Type: note buy milk","a")}
   if(m=t.match(/^add\s+(\S+)\s+(\S+)$/i)){return addSite(m[1],m[2]),say("Added "+m[1]+" to your sites.","a")}
   if(m=l.match(/^(?:remove|delete)\s+(.+)/)){var s0=find(m[1]);if(!s0)return say("I could not find a site called "+m[1]+".","a");sites=sites.filter(function(x){return x!==s0});persist();return say("Removed "+s0.n+".","a")}
+  if(m=t.match(/^(?:set\s+)?timer\s+(?:for\s+)?(\d+)\s*(h\w*|m\w*|s\w*)/i)){var tl=startTimer(dur(+m[1],m[2]),"");return say("Timer "+tl+" ka laga diya. App khuli rehni chahiye.","a")}
+  if(m=t.match(/^remind(?:\s+me)?\s+in\s+(\d+)\s*(h\w*|m\w*|s\w*)\s+(?:to|about)\s+(.+)/i)){var rl=startTimer(dur(+m[1],m[2]),m[3]);return say(rl+" baad yaad dilaunga: "+m[3]+". App khuli rehni chahiye.","a")}
+  if(m=t.match(/^(?:navigate|directions?|route)\s+(?:to\s+)?(.+)/i)){go("https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(m[1]));return say("Maps mein "+m[1]+" ka rasta khol raha hoon.","a")}
+  if(m=l.match(/^weather(?:\s+(?:in|of|at))?\s*(.*)$/)){go("https://www.google.com/search?q="+encodeURIComponent("weather "+m[1]));return say("Mausam dekhne ke liye Google khol raha hoon.","a")}
   if(m=t.match(/^(?:save|contact)\s+(\S+)\s+(\+?\d[\d-]{6,})$/i)){addContact(m[1],m[2]);return say("Saved contact "+m[1]+".","a")}
   if(m=t.match(/^(?:call|dial|phone)\s+(.+)/i)){var rc=resolve(m[1]);if(!rc)return say("Number ya saved contact nahi mila. Likho: save naam 9876543210","a");say("Dialer khol raha hoon: "+rc.label+". Call ka button aapko dabana hoga.","a");return launch("tel:"+cleanNum(rc.num))}
   if(m=t.match(/^(?:whatsapp|wa|msg|message|text)\s+(.+)/i)){var rw=resolve(m[1]);if(!rw)return say("Number ya saved contact nahi mila. Likho: whatsapp 9876543210 hello","a");say("WhatsApp khol raha hoon: "+rw.label+". Send aapko dabana hoga.","a");return launch(waUrl(rw.num,rw.tail))}
@@ -225,6 +231,28 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   }
   ask(t);
  }
+
+ /* ---------- timers ---------- */
+ function dur(n,u){return n*(/^h/i.test(u)?3600:/^m/i.test(u)?60:1)}
+ function fmtDur(x){return x>=3600?Math.round(x/360)/10+" ghante":x>=60?Math.round(x/6)/10+" minute":x+" second"}
+ function startTimer(sec,label){
+  sec=Math.max(1,Math.round(sec));
+  setTimeout(function(){
+   var msg=label?"याद दिलाना: "+label:"टाइमर पूरा हुआ।";
+   say(msg,"a");
+   try{if(window.Notification&&Notification.permission==="granted")new Notification("My Agent AI",{body:msg})}catch(e){}
+   try{if(navigator.vibrate)navigator.vibrate([300,150,300])}catch(e){}
+  },sec*1000);
+  try{if(window.Notification&&Notification.permission==="default")Notification.requestPermission()}catch(e){}
+  return fmtDur(sec);
+ }
+ function parseAI(x){
+  try{return JSON.parse(x)}catch(e){}
+  var a=x.indexOf("{"),b=x.lastIndexOf("}");
+  if(a>-1&&b>a){try{return JSON.parse(x.slice(a,b+1))}catch(e){}}
+  return {reply:x,actions:[]};
+ }
+ function post(key,body){return fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify(body)})}
 
  /* ---------- calls & whatsapp ---------- */
  function cleanNum(n){return String(n||"").replace(/[^\d+]/g,"")}
@@ -255,7 +283,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
  }
 
  /* ---------- AI brain ---------- */
- var SYS="You are the brain of a browser-based personal agent. The user speaks Hindi, Hinglish or English. Reply with ONLY JSON, no markdown: {\"reply\":\"a natural spoken answer of 1-3 short sentences. Answer any question or chat normally, like a helpful friend. The reply is read aloud, so use no markdown, lists or emoji. If the voice language is hi-IN and the user speaks Hindi or Hinglish, answer in Hindi using Devanagari script; otherwise answer in the user's language\",\"actions\":[...]}. Action types: {\"type\":\"open\",\"url\":\"https://...\"}, {\"type\":\"search\",\"engine\":\"google|youtube|wikipedia|github|maps\",\"q\":\"...\"}, {\"type\":\"view\",\"url\":\"https://...\"}, {\"type\":\"note\",\"text\":\"...\"}, {\"type\":\"call\",\"number\":\"digits\"}, {\"type\":\"whatsapp\",\"number\":\"digits\",\"text\":\"message\"}. Use actions only when the user wants a website opened, searched, viewed, a note saved, a phone call or a WhatsApp message. Call and whatsapp only open the dialer or the WhatsApp chat; the user presses the final button. For them use a number from the saved contacts or one the user said. You cannot control other apps, so say so honestly. Saved sites: ";
+ var SYS="You are the brain of a browser-based personal agent. The user speaks Hindi, Hinglish or English. Reply with ONLY JSON, no markdown: {\"reply\":\"a natural spoken answer of 1-3 short sentences. Answer any question or chat normally, like a helpful friend. The reply is read aloud, so use no markdown, lists or emoji. If the voice language is hi-IN and the user speaks Hindi or Hinglish, answer in Hindi using Devanagari script; otherwise answer in the user's language\",\"actions\":[...]}. Action types: {\"type\":\"open\",\"url\":\"https://...\"}, {\"type\":\"search\",\"engine\":\"google|youtube|wikipedia|github|maps\",\"q\":\"...\"}, {\"type\":\"view\",\"url\":\"https://...\"}, {\"type\":\"note\",\"text\":\"...\"}, {\"type\":\"call\",\"number\":\"digits\"}, {\"type\":\"whatsapp\",\"number\":\"digits\",\"text\":\"message\"}. Use actions only when the user wants a website opened, searched, viewed, a note saved, a phone call or a WhatsApp message. Call and whatsapp only open the dialer or the WhatsApp chat; the user presses the final button. For them use a number from the saved contacts or one the user said. Also {\"type\":\"timer\",\"seconds\":N,\"label\":\"what to remind, or empty\"} for timers and reminders (they only ring while this page is open, so mention that) and {\"type\":\"navigate\",\"destination\":\"place\"} for directions. For weather, news, scores, prices or other live facts, use web search and answer briefly. You cannot control other apps or set phone alarms, so say so honestly. Saved sites: ";
  function linkMsg(items){
   var d=document.createElement("div");d.className="m a";
   items.forEach(function(it){var a=document.createElement("a");a.href=it.u;if(!/^tel:/.test(it.u)){a.target="_blank";a.rel="noopener"}a.textContent="↗ "+it.l;a.style.display="block";d.appendChild(a)});
@@ -266,19 +294,23 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   if(!key)return say("Samajh nahi aaya. AI mode ke liye Sites tab mein apni Claude API key daalein, ya help likhein.","a");
   var th=document.createElement("div");th.className="m a";th.textContent="…";log.appendChild(th);log.scrollTop=log.scrollHeight;
   try{
-   var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:600,system:SYS+sites.map(function(s){return s.n+" "+s.u}).join(", ")+". Saved contacts: "+contacts.map(function(c){return c.n+" "+c.p}).join(", ")+". Voice language: "+$("lang").value,messages:chat.concat([{role:"user",content:t}])})});
+   var bd={model:"claude-haiku-4-5-20251001",max_tokens:800,system:SYS+sites.map(function(s){return s.n+" "+s.u}).join(", ")+". Saved contacts: "+contacts.map(function(c){return c.n+" "+c.p}).join(", ")+". Voice language: "+$("lang").value,messages:chat.concat([{role:"user",content:t}]),tools:[{type:"web_search_20250305",name:"web_search",max_uses:3}]};
+   var r=await post(key,bd);
+   if(!r.ok){delete bd.tools;r=await post(key,bd)}
    var j=await r.json();th.remove();
    if(!r.ok)return say("AI error: "+((j.error&&j.error.message)||r.status),"a");
-   var txt=j.content.map(function(c){return c.text||""}).join("").replace(/```json|```/g,"").trim(),o;
-   try{o=JSON.parse(txt)}catch(e){o={reply:txt,actions:[]}}
-   if(txt){chat.push({role:"user",content:t},{role:"assistant",content:txt});chat=chat.slice(-12)}
+   var txt=j.content.filter(function(c){return c.type==="text"}).map(function(c){return c.text||""}).join("").replace(/```json|```/g,"").trim(),o;
+   o=parseAI(txt);
+   if(txt){chat.push({role:"user",content:t},{role:"assistant",content:JSON.stringify(o)});chat=chat.slice(-12)}
    say(o.reply||"Done.","a");
    var links=[];
    (o.actions||[]).forEach(function(a){
     var u,lb;
     if(a.type==="note"){var n=load("agent.notes",[]);n.push(String(a.text||""));save("agent.notes",n);return}
+    if(a.type==="timer"){startTimer(Number(a.seconds)||60,String(a.label||""));return}
     if(a.type==="open"||a.type==="view"){u=norm(String(a.url||""));lb=u}
     else if(a.type==="search"){var e=engineByName(a.engine||"google")||find("google");u=e.s+encodeURIComponent(a.q||"");lb=e.n+": "+a.q}
+    else if(a.type==="navigate"){u="https://www.google.com/maps/dir/?api=1&destination="+encodeURIComponent(a.destination||"");lb="Maps: "+a.destination}
     else if(a.type==="call"){u="tel:"+cleanNum(a.number);lb="Call "+a.number}
     else if(a.type==="whatsapp"){u=waUrl(a.number,a.text);lb="WhatsApp "+a.number}
     if(!u)return;
@@ -331,15 +363,25 @@ iframe{flex:1;border:0;background:#fff;width:100%}
  function paintV(){$("spk").classList.toggle("on",voiceOut)}
  $("spk").onclick=function(){voiceOut=!voiceOut;save("agent.voice",voiceOut);paintV();if(!voiceOut&&window.speechSynthesis)speechSynthesis.cancel()};
  paintV();
+ $("wake").checked=wakeOn;
+ $("wake").onchange=function(){wakeOn=this.checked;save("agent.wake",wakeOn)};
  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(SR){
   rec=new SR();rec.continuous=true;
-  rec.onresult=function(e){var r=e.results[e.results.length-1];if(r.isFinal)run(r[0].transcript)};
+  rec.onresult=function(e){
+   var r=e.results[e.results.length-1];if(!r.isFinal)return;
+   var tx=r[0].transcript.trim();if(!tx)return;
+   if(!wakeOn){run(tx);return}
+   var m=tx.match(WAKE);
+   if(m){var rest=tx.slice(m[0].length).trim();if(rest){awakeUntil=0;run(rest)}else{awakeUntil=Date.now()+8000;say("जी, बोलिए","a")}}
+   else if(Date.now()<awakeUntil){awakeUntil=0;run(tx)}
+  };
   rec.onend=function(){if(listening&&!speaking){try{rec.start()}catch(e){}}else if(!listening){$("mic").classList.remove("on")}};
   $("mic").onclick=function(){
-   if(listening){listening=false;rec.stop();$("mic").classList.remove("on");return}
+   if(listening){listening=false;rec.stop();$("mic").classList.remove("on");if(wl){try{wl.release()}catch(e){}wl=null}return}
    rec.lang=$("lang").value;listening=true;$("mic").classList.add("on");try{rec.start()}catch(e){}
-   say("Sun raha hoon. Boliye.","a");
+   try{navigator.wakeLock.request("screen").then(function(w){wl=w}).catch(function(){})}catch(e){}
+   say(wakeOn?"Sun raha hoon. Hi Agent bolkar kaam batayein.":"Sun raha hoon. Boliye.","a");
   };
  }else{$("mic").style.display="none"}
 
