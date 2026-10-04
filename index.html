@@ -104,6 +104,13 @@ iframe{flex:1;border:0;background:#fff;width:100%}
     <input id="au" placeholder="example.com" required aria-label="Site address">
     <button class="btn" style="padding:9px 16px">Add site</button>
    </form>
+   <p class="note" style="margin:0"><b style="color:var(--text)">Contacts</b> · call ya WhatsApp ke liye</p>
+   <div class="grid" id="cgrid"></div>
+   <form class="add" id="cform">
+    <input id="cn" placeholder="Name" required aria-label="Contact name">
+    <input id="cp" type="tel" placeholder="Number" required aria-label="Contact number">
+    <button class="btn" style="padding:9px 16px">Save</button>
+   </form>
    <form class="add" id="kform">
     <input id="key" type="password" placeholder="Claude API key (AI mode)" aria-label="API key" autocomplete="off">
     <select id="lang" aria-label="Voice language" style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px"><option value="hi-IN">Hindi / Hinglish voice</option><option value="en-US">English voice</option></select>
@@ -139,7 +146,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   {n:"Claude",u:"https://claude.ai"}
  ];
  var COL=["#6cb6ff","#ffb86b","#6fe0a8","#f08fb0","#c3a6ff","#ffe27a"];
- var sites=load("agent.sites",DEF), hist=load("agent.log",[]);
+ var sites=load("agent.sites",DEF), hist=load("agent.log",[]), contacts=load("agent.contacts",[]);
  function load(k,d){try{var v=JSON.parse(localStorage.getItem(k));return v||d}catch(e){return d}}
  function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
  function norm(u){u=u.trim();return /^https?:\/\//i.test(u)?u:"https://"+u}
@@ -160,7 +167,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
  function engineByName(n){return find(n)&&find(n).s?find(n):null}
 
  var JOKES=["Why do programmers prefer dark mode? Light attracts bugs.","I would tell you a UDP joke, but you might not get it.","There are 10 kinds of people: those who know binary and those who don't."];
- var HELP="Commands I understand:\n• open <site> — launch a site in a new tab\n• view <site> — show it inside this page\n• search <words> on <site> — e.g. search lofi on youtube\n• play <song> — YouTube search\n• add <name> <address> — save a new site\n• remove <site> — delete a saved site\n• calc 12*(3+4)\n• time, date, joke, note <text>, notes\n• open all — launch every saved site\n• clear";
+ var HELP="Commands I understand:\n• open <site> — launch a site in a new tab\n• view <site> — show it inside this page\n• search <words> on <site> — e.g. search lofi on youtube\n• play <song> — YouTube search\n• add <name> <address> — save a new site\n• remove <site> — delete a saved site\n• call <name or number> — opens the dialer\n• whatsapp <name or number> <message>\n• save <name> <number> — save a contact\n• calc 12*(3+4)\n• time, date, joke, note <text>, notes\n• open all — launch every saved site\n• clear";
 
  function run(raw){
   var t=raw.trim();if(!t)return;
@@ -181,6 +188,9 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   if(l==="notes"){var ns=load("agent.notes",[]);return say(ns.length?ns.map(function(x,i){return (i+1)+". "+x}).join("\n"):"No notes yet. Type: note buy milk","a")}
   if(m=t.match(/^add\s+(\S+)\s+(\S+)$/i)){return addSite(m[1],m[2]),say("Added "+m[1]+" to your sites.","a")}
   if(m=l.match(/^(?:remove|delete)\s+(.+)/)){var s0=find(m[1]);if(!s0)return say("I could not find a site called "+m[1]+".","a");sites=sites.filter(function(x){return x!==s0});persist();return say("Removed "+s0.n+".","a")}
+  if(m=t.match(/^(?:save|contact)\s+(\S+)\s+(\+?\d[\d-]{6,})$/i)){addContact(m[1],m[2]);return say("Saved contact "+m[1]+".","a")}
+  if(m=t.match(/^(?:call|dial|phone)\s+(.+)/i)){var rc=resolve(m[1]);if(!rc)return say("Number ya saved contact nahi mila. Likho: save naam 9876543210","a");say("Dialer khol raha hoon: "+rc.label+". Call ka button aapko dabana hoga.","a");return launch("tel:"+cleanNum(rc.num))}
+  if(m=t.match(/^(?:whatsapp|wa|msg|message|text)\s+(.+)/i)){var rw=resolve(m[1]);if(!rw)return say("Number ya saved contact nahi mila. Likho: whatsapp 9876543210 hello","a");say("WhatsApp khol raha hoon: "+rw.label+". Send aapko dabana hoga.","a");return launch(waUrl(rw.num,rw.tail))}
   if(m=t.match(/^play\s+(.+)/i)){go("https://www.youtube.com/results?search_query="+encodeURIComponent(m[1]));return say("Searching YouTube for "+m[1]+".","a")}
   if(m=t.match(/^(?:search|find|look up)\s+(.+?)(?:\s+(?:on|in|at)\s+(\S+))?$/i)){
    var e=m[2]?engineByName(m[2]):find("google");
@@ -197,11 +207,39 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   ask(t);
  }
 
+ /* ---------- calls & whatsapp ---------- */
+ function cleanNum(n){return String(n||"").replace(/[^\d+]/g,"")}
+ function waNum(n){var d=cleanNum(n).replace(/\+/g,"");if(d.length===10)d="91"+d;else if(d.length===11&&d.charAt(0)==="0")d="91"+d.slice(1);return d}
+ function waUrl(n,t){return "https://wa.me/"+waNum(n)+(t?"?text="+encodeURIComponent(t):"")}
+ function launch(u){if(/^tel:/.test(u))location.href=u;else go(u)}
+ function addContact(n,p){contacts.push({n:n,p:p});save("agent.contacts",contacts);renderC()}
+ function resolve(rest){
+  rest=rest.trim();var l=rest.toLowerCase();
+  var cs=contacts.slice().sort(function(a,b){return b.n.length-a.n.length});
+  for(var i=0;i<cs.length;i++){var n=cs[i].n.toLowerCase();if(l===n||l.indexOf(n+" ")===0)return{num:cs[i].p,tail:rest.slice(n.length).trim(),label:cs[i].n}}
+  var m=rest.match(/^(\+?\d[\d-]{6,})\s*(.*)$/);
+  return m?{num:m[1],tail:m[2],label:m[1]}:null;
+ }
+ function renderC(){
+  var g=$("cgrid");g.innerHTML="";
+  contacts.forEach(function(c,i){
+   var d=document.createElement("div");d.className="site";
+   d.innerHTML='<button class="del"></button><b><span class="dot"></span><span class="nm"></span></b><div class="acts"><button class="o">Call</button><button class="v">WhatsApp</button></div>';
+   d.querySelector(".nm").textContent=c.n;
+   var dt=d.querySelector(".dot");dt.textContent=c.n.charAt(0).toUpperCase();dt.style.background=COL[i%COL.length];
+   var x=d.querySelector(".del");x.textContent="×";x.title="Remove "+c.n;
+   x.onclick=function(){contacts.splice(i,1);save("agent.contacts",contacts);renderC()};
+   d.querySelector(".o").onclick=function(){launch("tel:"+cleanNum(c.p))};
+   d.querySelector(".v").onclick=function(){launch(waUrl(c.p,""))};
+   g.appendChild(d);
+  });
+ }
+
  /* ---------- AI brain ---------- */
- var SYS="You are the brain of a browser-based personal agent. The user speaks Hindi, Hinglish or English. Reply with ONLY JSON, no markdown: {\"reply\":\"short friendly answer in the user's language\",\"actions\":[...]}. Action types: {\"type\":\"open\",\"url\":\"https://...\"}, {\"type\":\"search\",\"engine\":\"google|youtube|wikipedia|github|maps\",\"q\":\"...\"}, {\"type\":\"view\",\"url\":\"https://...\"}, {\"type\":\"note\",\"text\":\"...\"}. Use actions only when the user wants a website opened, searched, viewed or a note saved. You cannot make calls, send messages or control other apps, so say so honestly. Saved sites: ";
+ var SYS="You are the brain of a browser-based personal agent. The user speaks Hindi, Hinglish or English. Reply with ONLY JSON, no markdown: {\"reply\":\"short friendly answer in the user's language\",\"actions\":[...]}. Action types: {\"type\":\"open\",\"url\":\"https://...\"}, {\"type\":\"search\",\"engine\":\"google|youtube|wikipedia|github|maps\",\"q\":\"...\"}, {\"type\":\"view\",\"url\":\"https://...\"}, {\"type\":\"note\",\"text\":\"...\"}, {\"type\":\"call\",\"number\":\"digits\"}, {\"type\":\"whatsapp\",\"number\":\"digits\",\"text\":\"message\"}. Use actions only when the user wants a website opened, searched, viewed, a note saved, a phone call or a WhatsApp message. Call and whatsapp only open the dialer or the WhatsApp chat; the user presses the final button. For them use a number from the saved contacts or one the user said. You cannot control other apps, so say so honestly. Saved sites: ";
  function linkMsg(items){
   var d=document.createElement("div");d.className="m a";
-  items.forEach(function(it){var a=document.createElement("a");a.href=it.u;a.target="_blank";a.rel="noopener";a.textContent="↗ "+it.l;a.style.display="block";d.appendChild(a)});
+  items.forEach(function(it){var a=document.createElement("a");a.href=it.u;if(!/^tel:/.test(it.u)){a.target="_blank";a.rel="noopener"}a.textContent="↗ "+it.l;a.style.display="block";d.appendChild(a)});
   log.appendChild(d);log.scrollTop=log.scrollHeight;
  }
  async function ask(t){
@@ -209,7 +247,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   if(!key)return say("Samajh nahi aaya. AI mode ke liye Sites tab mein apni Claude API key daalein, ya help likhein.","a");
   var th=document.createElement("div");th.className="m a";th.textContent="…";log.appendChild(th);log.scrollTop=log.scrollHeight;
   try{
-   var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:500,system:SYS+sites.map(function(s){return s.n+" "+s.u}).join(", "),messages:[{role:"user",content:t}]})});
+   var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:500,system:SYS+sites.map(function(s){return s.n+" "+s.u}).join(", ")+". Saved contacts: "+contacts.map(function(c){return c.n+" "+c.p}).join(", "),messages:[{role:"user",content:t}]})});
    var j=await r.json();th.remove();
    if(!r.ok)return say("AI error: "+((j.error&&j.error.message)||r.status),"a");
    var txt=j.content.map(function(c){return c.text||""}).join("").replace(/```json|```/g,"").trim(),o;
@@ -221,10 +259,12 @@ iframe{flex:1;border:0;background:#fff;width:100%}
     if(a.type==="note"){var n=load("agent.notes",[]);n.push(String(a.text||""));save("agent.notes",n);return}
     if(a.type==="open"||a.type==="view"){u=norm(String(a.url||""));lb=u}
     else if(a.type==="search"){var e=engineByName(a.engine||"google")||find("google");u=e.s+encodeURIComponent(a.q||"");lb=e.n+": "+a.q}
+    else if(a.type==="call"){u="tel:"+cleanNum(a.number);lb="Call "+a.number}
+    else if(a.type==="whatsapp"){u=waUrl(a.number,a.text);lb="WhatsApp "+a.number}
     if(!u)return;
     if(a.type==="view")view(null,u);else links.push({u:u,l:lb});
    });
-   if(links.length){linkMsg(links);go(links[0].u)}
+   if(links.length){linkMsg(links);launch(links[0].u)}
   }catch(e){th.remove();say("AI se connect nahi ho paya. Internet ya key check karein.","a")}
  }
 
@@ -249,6 +289,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
  }
  $("sform").onsubmit=function(ev){ev.preventDefault();var q=$("q").value.trim(),e=find($("eng").value);if(!q||!e)return;go(e.s+encodeURIComponent(q));say("Searched "+e.n+" for "+q+".","a");$("q").value=""};
  $("aform").onsubmit=function(ev){ev.preventDefault();addSite($("an").value.trim(),$("au").value);$("an").value="";$("au").value="";say("Added a new site.","a")};
+ $("cform").onsubmit=function(ev){ev.preventDefault();addContact($("cn").value.trim(),$("cp").value.trim());$("cn").value="";$("cp").value=""};
  $("vx").onclick=function(){$("view").classList.remove("show");$("fr").src="about:blank"};
 
  /* ---------- ui ---------- */
@@ -279,7 +320,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   };
  }else{$("mic").style.display="none"}
 
- render();
+ render();renderC();
  if(hist.length){hist.forEach(function(h){say(h.t,h.w,true)})}
  else{say("Hi, I am your agent. I can open and control websites for you. Type help to see everything, or tap a command below.","a")}
 })();
