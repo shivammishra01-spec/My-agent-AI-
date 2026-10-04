@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Agent AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1b26;--panel:#172737;--panel2:#1f3447;--line:#2b4259;--text:#e8eef3;--mute:#8fa5b8;--acc:#6cb6ff;--acc2:#ffb86b;--ok:#6fe0a8;--r:14px;box-sizing:border-box}
+*,*:before,*:after{box-sizing:inherit}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font:15px/1.5 "Space Grotesk",system-ui,sans-serif;padding-top:env(safe-area-inset-top,0)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.app{height:100%;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);grid-template-rows:auto 1fr;gap:12px;padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom,0))}
+header{grid-column:1/-1;display:flex;align-items:center;gap:12px}
+.logo{width:38px;height:38px;border-radius:11px;background:conic-gradient(from 200deg,var(--acc),var(--acc2),var(--acc));display:grid;place-items:center;color:#0f1b26;font-weight:700}
+h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.2px}
+header small{color:var(--mute);display:block;line-height:1.2}
+.sp{flex:1}
+.pill{border:1px solid var(--line);background:var(--panel);border-radius:99px;padding:6px 12px;color:var(--mute);font-size:13px}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.ph{padding:12px 14px;border-bottom:1px solid var(--line);font-weight:500;display:flex;align-items:center;gap:8px}
+.ph .sp{flex:1}
+#log{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth}
+.m{max-width:88%;padding:9px 13px;border-radius:14px;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}
+.m.u{align-self:flex-end;background:var(--acc);color:#0b1722;border-bottom-right-radius:4px}
+.m.a{align-self:flex-start;background:var(--panel2);border-bottom-left-radius:4px}
+.m a{color:var(--acc2)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 14px 0;scrollbar-width:none}
+.chips button{flex:none;border:1px solid var(--line);background:transparent;border-radius:99px;padding:5px 11px;font-size:13px;color:var(--mute)}
+.chips button:hover{color:var(--text);border-color:var(--acc)}
+.bar{display:flex;gap:8px;padding:12px 14px}
+.bar input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:11px 13px}
+.btn{background:var(--acc);color:#0b1722;border:0;border-radius:12px;padding:0 16px;font-weight:700}
+.btn.g{background:var(--panel2);color:var(--text);border:1px solid var(--line);font-weight:500}
+.btn.on{background:var(--acc2)}
+.ctrl{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:14px}
+.srch{display:flex;gap:8px}
+.srch input,.srch select,.add input{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px;min-width:0}
+.srch input{flex:1}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px}
+.site{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:8px;position:relative}
+.site b{display:flex;align-items:center;gap:8px;font-weight:500;word-break:break-word}
+.dot{width:26px;height:26px;border-radius:8px;flex:none;display:grid;place-items:center;font-size:13px;font-weight:700;color:#0b1722}
+.acts{display:flex;gap:6px}
+.acts button{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:5px 0;font-size:13px}
+.acts button:hover{border-color:var(--acc);color:var(--acc)}
+.del{position:absolute;top:4px;right:6px;border:0;background:none;color:var(--mute);font-size:16px;line-height:1}
+.add{display:flex;gap:8px;flex-wrap:wrap}
+.add input{flex:1 1 120px}
+.view{display:none;flex-direction:column;border:1px solid var(--line);border-radius:12px;overflow:hidden;height:min(60vh,420px);flex:none}
+.view.show{display:flex}
+.vh{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel2);font-size:13px}
+.vh span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mute)}
+.vh button{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:3px 10px}
+iframe{flex:1;border:0;background:#fff;width:100%}
+.note{font-size:12.5px;color:var(--mute)}
+.tabs{display:none}
+@media(max-width:860px){
+ .app{grid-template-columns:1fr;grid-template-rows:auto 1fr auto;gap:10px;padding:10px}
+ .pane{display:none}.pane.show{display:flex}
+ .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:5px}
+ .tabs button{border:0;background:none;border-radius:10px;padding:10px;color:var(--mute);font-weight:500}
+ .tabs button.on{background:var(--acc);color:#0b1722}
+ .pill{display:none}
+ .m{max-width:94%}
+}
+@media(prefers-reduced-motion:reduce){#log{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="app">
+ <header>
+  <div class="logo">A</div>
+  <div><h1>My Agent AI</h1><small>Type a command or tap a site</small></div>
+  <div class="sp"></div>
+  <div class="pill" id="clock"></div>
+ </header>
+
+ <section class="pane show" id="chatPane" aria-label="Agent chat">
+  <div class="ph">Agent <span class="sp"></span><button class="btn g" style="padding:4px 12px" id="clear">Clear</button></div>
+  <div id="log" aria-live="polite"></div>
+  <div class="chips" id="chips"></div>
+  <form class="bar" id="form">
+   <input id="inp" placeholder="Try: open youtube" autocomplete="off" aria-label="Command">
+   <button type="button" class="btn g" id="mic" title="Speak" aria-label="Voice input">🎤</button>
+   <button class="btn" type="submit">Send</button>
+  </form>
+ </section>
+
+ <section class="pane" id="ctrlPane" aria-label="Website controller">
+  <div class="ph">Website controller</div>
+  <div class="ctrl">
+   <form class="srch" id="sform">
+    <input id="q" placeholder="Search anything" aria-label="Search">
+    <select id="eng" aria-label="Search on"></select>
+    <button class="btn" style="padding:0 14px">Go</button>
+   </form>
+   <div class="grid" id="grid"></div>
+   <form class="add" id="aform">
+    <input id="an" placeholder="Name" required aria-label="Site name">
+    <input id="au" placeholder="example.com" required aria-label="Site address">
+    <button class="btn" style="padding:9px 16px">Add site</button>
+   </form>
+   <form class="add" id="kform">
+    <input id="key" type="password" placeholder="Claude API key (AI mode)" aria-label="API key" autocomplete="off">
+    <select id="lang" aria-label="Voice language" style="background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:9px 11px"><option value="hi-IN">Hindi / Hinglish voice</option><option value="en-US">English voice</option></select>
+    <button class="btn" style="padding:9px 16px">Save</button>
+   </form>
+   <p class="note">AI mode: key daalne ke baad jo bhi bologe, agent samajhkar sites open/search karega. Key sirf is browser mein save hoti hai.</p>
+   <div class="view" id="view">
+    <div class="vh"><span id="vt"></span><button id="vo">Open tab</button><button id="vx">Close</button></div>
+    <iframe id="fr" title="Site viewer" referrerpolicy="no-referrer"></iframe>
+   </div>
+   <p class="note">Some sites (Google, YouTube, GitHub) refuse to load inside other pages. If the viewer stays blank, use Open to launch it in a new tab.</p>
+  </div>
+ </section>
+
+ <nav class="tabs" aria-label="Switch view">
+  <button class="on" data-t="chatPane">Agent</button>
+  <button data-t="ctrlPane">Sites</button>
+ </nav>
+</div>
+
+<script>
+(function(){
+ var $=function(i){return document.getElementById(i)};
+ var DEF=[
+  {n:"YouTube",u:"https://www.youtube.com",s:"https://www.youtube.com/results?search_query="},
+  {n:"Google",u:"https://www.google.com",s:"https://www.google.com/search?q="},
+  {n:"Wikipedia",u:"https://en.wikipedia.org",s:"https://en.wikipedia.org/w/index.php?search="},
+  {n:"GitHub",u:"https://github.com",s:"https://github.com/search?q="},
+  {n:"Maps",u:"https://www.google.com/maps",s:"https://www.google.com/maps/search/"},
+  {n:"Gmail",u:"https://mail.google.com"},
+  {n:"WhatsApp",u:"https://web.whatsapp.com"},
+  {n:"ChatGPT",u:"https://chatgpt.com"},
+  {n:"Claude",u:"https://claude.ai"}
+ ];
+ var COL=["#6cb6ff","#ffb86b","#6fe0a8","#f08fb0","#c3a6ff","#ffe27a"];
+ var sites=load("agent.sites",DEF), hist=load("agent.log",[]);
+ function load(k,d){try{var v=JSON.parse(localStorage.getItem(k));return v||d}catch(e){return d}}
+ function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+ function norm(u){u=u.trim();return /^https?:\/\//i.test(u)?u:"https://"+u}
+ function find(name){name=name.toLowerCase().trim();return sites.filter(function(s){return s.n.toLowerCase()===name})[0]||sites.filter(function(s){return s.n.toLowerCase().indexOf(name)>-1||name.indexOf(s.n.toLowerCase())>-1})[0]}
+
+ /* ---------- chat ---------- */
+ var log=$("log"),listening=false,rec=null;
+ function say(t,who,keep){
+  var d=document.createElement("div");d.className="m "+who;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;
+  if(!keep){hist.push({t:t,w:who});hist=hist.slice(-60);save("agent.log",hist)}
+ }
+ function go(url){var w=window.open(url,"_blank","noopener");if(!w){say("Your browser blocked the new tab. Allow pop-ups for this page, then try again.","a")}}
+ function view(s,url){
+  $("view").classList.add("show");$("fr").src=url||s.u;$("vt").textContent=(s?s.n:"")+" · "+(url||s.u);$("vo").onclick=function(){go(url||s.u)};
+  tab("ctrlPane");
+ }
+ function openSite(s){go(s.u);}
+ function engineByName(n){return find(n)&&find(n).s?find(n):null}
+
+ var JOKES=["Why do programmers prefer dark mode? Light attracts bugs.","I would tell you a UDP joke, but you might not get it.","There are 10 kinds of people: those who know binary and those who don't."];
+ var HELP="Commands I understand:\n• open <site> — launch a site in a new tab\n• view <site> — show it inside this page\n• search <words> on <site> — e.g. search lofi on youtube\n• play <song> — YouTube search\n• add <name> <address> — save a new site\n• remove <site> — delete a saved site\n• calc 12*(3+4)\n• time, date, joke, note <text>, notes\n• open all — launch every saved site\n• clear";
+
+ function run(raw){
+  var t=raw.trim();if(!t)return;
+  say(t,"u");
+  var l=t.toLowerCase(),m;
+  if(l==="help"||l==="?"||l==="what can you do")return say(HELP,"a");
+  if(l==="clear"){log.innerHTML="";hist=[];save("agent.log",hist);return say("Chat cleared.","a")}
+  if(l==="time")return say("It is "+new Date().toLocaleTimeString()+".","a");
+  if(l==="date")return say("Today is "+new Date().toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+".","a");
+  if(l==="joke")return say(JOKES[Math.floor(Math.random()*JOKES.length)],"a");
+  if(l==="open all"){sites.forEach(function(s,i){setTimeout(function(){go(s.u)},i*150)});return say("Opening "+sites.length+" sites. Your browser may ask to allow pop-ups.","a")}
+  if(m=l.match(/^(?:calc|calculate|=)\s*(.+)$/)||(/^[\d\s+\-*/().%^]+$/.test(l)&&/\d/.test(l)&&/[+\-*/^%]/.test(l)?[0,l]:null)){
+   var ex=m[1].replace(/\^/g,"**");
+   if(!/^[\d\s+\-*/().%]+$/.test(ex))return say("I can only calculate numbers with + - * / ( ) % ^.","a");
+   try{var r=Function('"use strict";return ('+ex+')')();return say(m[1]+" = "+r,"a")}catch(e){return say("That expression is not valid.","a")}
+  }
+  if(m=l.match(/^note\s+(.+)/)){var n=load("agent.notes",[]);n.push(t.slice(5).trim());save("agent.notes",n);return say("Saved note #"+n.length+".","a")}
+  if(l==="notes"){var ns=load("agent.notes",[]);return say(ns.length?ns.map(function(x,i){return (i+1)+". "+x}).join("\n"):"No notes yet. Type: note buy milk","a")}
+  if(m=t.match(/^add\s+(\S+)\s+(\S+)$/i)){return addSite(m[1],m[2]),say("Added "+m[1]+" to your sites.","a")}
+  if(m=l.match(/^(?:remove|delete)\s+(.+)/)){var s0=find(m[1]);if(!s0)return say("I could not find a site called "+m[1]+".","a");sites=sites.filter(function(x){return x!==s0});persist();return say("Removed "+s0.n+".","a")}
+  if(m=t.match(/^play\s+(.+)/i)){go("https://www.youtube.com/results?search_query="+encodeURIComponent(m[1]));return say("Searching YouTube for "+m[1]+".","a")}
+  if(m=t.match(/^(?:search|find|look up)\s+(.+?)(?:\s+(?:on|in|at)\s+(\S+))?$/i)){
+   var e=m[2]?engineByName(m[2]):find("google");
+   if(m[2]&&!e)return say("I do not have a search page for "+m[2]+". Try google, youtube, wikipedia, github or maps.","a");
+   go(e.s+encodeURIComponent(m[1]));return say("Searching "+e.n+" for "+m[1]+".","a");
+  }
+  if(m=l.match(/^(?:view|show|embed)\s+(.+)/)){var sv=find(m[1]);if(!sv)return say("I could not find "+m[1]+". Add it with: add name address","a");view(sv);return say("Showing "+sv.n+" in the viewer.","a")}
+  if(m=l.match(/^(?:open|launch|go to|start)\s+(.+)/)){
+   var so=find(m[1]);
+   if(so){openSite(so);return say("Opening "+so.n+".","a")}
+   if(/^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(m[1])){go(norm(m[1]));return say("Opening "+m[1]+".","a")}
+   return say("I do not know "+m[1]+" yet. Save it with: add "+m[1]+" example.com","a");
+  }
+  ask(t);
+ }
+
+ /* ---------- AI brain ---------- */
+ var SYS="You are the brain of a browser-based personal agent. The user speaks Hindi, Hinglish or English. Reply with ONLY JSON, no markdown: {\"reply\":\"short friendly answer in the user's language\",\"actions\":[...]}. Action types: {\"type\":\"open\",\"url\":\"https://...\"}, {\"type\":\"search\",\"engine\":\"google|youtube|wikipedia|github|maps\",\"q\":\"...\"}, {\"type\":\"view\",\"url\":\"https://...\"}, {\"type\":\"note\",\"text\":\"...\"}. Use actions only when the user wants a website opened, searched, viewed or a note saved. You cannot make calls, send messages or control other apps, so say so honestly. Saved sites: ";
+ function linkMsg(items){
+  var d=document.createElement("div");d.className="m a";
+  items.forEach(function(it){var a=document.createElement("a");a.href=it.u;a.target="_blank";a.rel="noopener";a.textContent="↗ "+it.l;a.style.display="block";d.appendChild(a)});
+  log.appendChild(d);log.scrollTop=log.scrollHeight;
+ }
+ async function ask(t){
+  var key="";try{key=localStorage.getItem("agent.key")||""}catch(e){}
+  if(!key)return say("Samajh nahi aaya. AI mode ke liye Sites tab mein apni Claude API key daalein, ya help likhein.","a");
+  var th=document.createElement("div");th.className="m a";th.textContent="…";log.appendChild(th);log.scrollTop=log.scrollHeight;
+  try{
+   var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:500,system:SYS+sites.map(function(s){return s.n+" "+s.u}).join(", "),messages:[{role:"user",content:t}]})});
+   var j=await r.json();th.remove();
+   if(!r.ok)return say("AI error: "+((j.error&&j.error.message)||r.status),"a");
+   var txt=j.content.map(function(c){return c.text||""}).join("").replace(/```json|```/g,"").trim(),o;
+   try{o=JSON.parse(txt)}catch(e){o={reply:txt,actions:[]}}
+   say(o.reply||"Done.","a");
+   var links=[];
+   (o.actions||[]).forEach(function(a){
+    var u,lb;
+    if(a.type==="note"){var n=load("agent.notes",[]);n.push(String(a.text||""));save("agent.notes",n);return}
+    if(a.type==="open"||a.type==="view"){u=norm(String(a.url||""));lb=u}
+    else if(a.type==="search"){var e=engineByName(a.engine||"google")||find("google");u=e.s+encodeURIComponent(a.q||"");lb=e.n+": "+a.q}
+    if(!u)return;
+    if(a.type==="view")view(null,u);else links.push({u:u,l:lb});
+   });
+   if(links.length){linkMsg(links);go(links[0].u)}
+  }catch(e){th.remove();say("AI se connect nahi ho paya. Internet ya key check karein.","a")}
+ }
+
+ /* ---------- controller ---------- */
+ function persist(){save("agent.sites",sites);render()}
+ function addSite(n,u){sites.push({n:n,u:norm(u)});persist()}
+ function render(){
+  var g=$("grid");g.innerHTML="";
+  sites.forEach(function(s,i){
+   var c=document.createElement("div");c.className="site";
+   c.innerHTML='<button class="del" aria-label="Remove"></button><b><span class="dot"></span><span class="nm"></span></b><div class="acts"><button class="o">Open</button><button class="v">View</button></div>';
+   c.querySelector(".nm").textContent=s.n;
+   var d=c.querySelector(".dot");d.textContent=s.n.charAt(0).toUpperCase();d.style.background=COL[i%COL.length];
+   var x=c.querySelector(".del");x.textContent="×";x.title="Remove "+s.n;
+   x.onclick=function(){sites.splice(i,1);persist()};
+   c.querySelector(".o").onclick=function(){go(s.u)};
+   c.querySelector(".v").onclick=function(){view(s)};
+   g.appendChild(c);
+  });
+  var e=$("eng");e.innerHTML="";
+  sites.filter(function(s){return s.s}).forEach(function(s){var o=document.createElement("option");o.value=s.n;o.textContent=s.n;e.appendChild(o)});
+ }
+ $("sform").onsubmit=function(ev){ev.preventDefault();var q=$("q").value.trim(),e=find($("eng").value);if(!q||!e)return;go(e.s+encodeURIComponent(q));say("Searched "+e.n+" for "+q+".","a");$("q").value=""};
+ $("aform").onsubmit=function(ev){ev.preventDefault();addSite($("an").value.trim(),$("au").value);$("an").value="";$("au").value="";say("Added a new site.","a")};
+ $("vx").onclick=function(){$("view").classList.remove("show");$("fr").src="about:blank"};
+
+ /* ---------- ui ---------- */
+ $("form").onsubmit=function(ev){ev.preventDefault();var v=$("inp").value;$("inp").value="";run(v)};
+ $("clear").onclick=function(){run("clear")};
+ ["open youtube","search lofi on youtube","view wikipedia","calc 24*7","time","help"].forEach(function(c){
+  var b=document.createElement("button");b.type="button";b.textContent=c;b.onclick=function(){run(c)};$("chips").appendChild(b)});
+ function tab(id){
+  ["chatPane","ctrlPane"].forEach(function(p){$(p).classList.toggle("show",p===id)});
+  [].forEach.call(document.querySelectorAll(".tabs button"),function(b){b.classList.toggle("on",b.dataset.t===id)});
+ }
+ [].forEach.call(document.querySelectorAll(".tabs button"),function(b){b.onclick=function(){tab(b.dataset.t)}});
+ if(matchMedia("(min-width:861px)").matches){$("ctrlPane").classList.add("show")}
+ addEventListener("resize",function(){if(matchMedia("(min-width:861px)").matches){$("chatPane").classList.add("show");$("ctrlPane").classList.add("show")}else{tab(document.querySelector(".tabs button.on").dataset.t)}});
+ function tick(){$("clock").textContent=new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}tick();setInterval(tick,15000);
+
+ $("lang").value=load("agent.lang","hi-IN");
+ $("kform").onsubmit=function(ev){ev.preventDefault();var k=$("key").value.trim();save("agent.lang",$("lang").value);if(k){try{localStorage.setItem("agent.key",k)}catch(e){}$("key").value="";say("AI mode ON. Ab jo bologe, main samajhkar karunga.","a");tab("chatPane")}};
+ var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(SR){
+  rec=new SR();rec.continuous=true;
+  rec.onresult=function(e){var r=e.results[e.results.length-1];if(r.isFinal)run(r[0].transcript)};
+  rec.onend=function(){if(listening){try{rec.start()}catch(e){}}else{$("mic").classList.remove("on")}};
+  $("mic").onclick=function(){
+   if(listening){listening=false;rec.stop();$("mic").classList.remove("on");return}
+   rec.lang=$("lang").value;listening=true;$("mic").classList.add("on");try{rec.start()}catch(e){}
+   say("Sun raha hoon. Boliye.","a");
+  };
+ }else{$("mic").style.display="none"}
+
+ render();
+ if(hist.length){hist.forEach(function(h){say(h.t,h.w,true)})}
+ else{say("Hi, I am your agent. I can open and control websites for you. Type help to see everything, or tap a command below.","a")}
+})();
+</script>
+</body>
+</html>

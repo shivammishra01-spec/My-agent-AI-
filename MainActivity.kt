@@ -1,0 +1,103 @@
+package com.shivam.autoanswer
+
+import android.Manifest
+import android.app.Activity
+import android.content.Intent
+import android.content.SharedPreferences
+import android.os.Bundle
+import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.SeekBar
+import android.widget.Switch
+import android.widget.TextView
+
+class MainActivity : Activity() {
+    private lateinit var p: SharedPreferences
+    private lateinit var list: TextView
+
+    private fun askPerms() = requestPermissions(arrayOf(
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.ANSWER_PHONE_CALLS,
+        Manifest.permission.READ_CALL_LOG), 1)
+
+    private fun showList() {
+        val s = p.getStringSet("contacts", emptySet())!!
+        list.text = if (s.isEmpty()) "No contacts selected"
+        else s.joinToString("\n") { "• " + it.substringBefore('|') }
+    }
+
+    override fun onCreate(b: Bundle?) {
+        super.onCreate(b)
+        p = getSharedPreferences("cfg", MODE_PRIVATE)
+        val pad = (24 * resources.displayMetrics.density).toInt()
+
+        val title = TextView(this).apply { text = "Auto Answer"; textSize = 28f }
+        val sw = Switch(this).apply {
+            text = "Answer incoming calls"; textSize = 20f
+            isChecked = p.getBoolean("on", false); setPadding(0, pad, 0, pad / 2)
+        }
+        val only = Switch(this).apply {
+            text = "Only selected contacts"; textSize = 18f
+            isChecked = p.getBoolean("onlySel", false); setPadding(0, pad / 2, 0, pad / 2)
+        }
+        val spk = Switch(this).apply {
+            text = "Speaker ON after answering"; textSize = 18f
+            isChecked = p.getBoolean("speaker", true); setPadding(0, pad / 2, 0, pad / 2)
+        }
+        val label = TextView(this).apply { textSize = 16f; setPadding(0, pad / 2, 0, 0) }
+        val bar = SeekBar(this).apply { max = 6; progress = p.getInt("delay", 3) }
+        val add = Button(this).apply {
+            text = "+ Add contact"
+            setOnClickListener { startActivityForResult(Intent(Intent.ACTION_PICK, Phone.CONTENT_URI), 7) }
+        }
+        val clear = Button(this).apply {
+            text = "Clear list"
+            setOnClickListener { p.edit().remove("contacts").apply(); showList() }
+        }
+        list = TextView(this).apply { textSize = 16f; setPadding(0, pad / 2, 0, pad / 2) }
+        val hint = TextView(this).apply {
+            text = "Allow phone, call log and answer-call permissions. With \"Only selected contacts\" on and an empty list, no call is answered. Keep this app unrestricted in battery settings."
+            textSize = 13f; setPadding(0, pad / 2, 0, 0)
+        }
+
+        fun refresh() { label.text = "Answer after ${bar.progress} seconds" }
+        refresh(); showList()
+
+        sw.setOnCheckedChangeListener { _, on ->
+            p.edit().putBoolean("on", on).apply(); if (on) askPerms()
+        }
+        only.setOnCheckedChangeListener { _, on ->
+            p.edit().putBoolean("onlySel", on).apply(); if (on) askPerms()
+        }
+        spk.setOnCheckedChangeListener { _, on -> p.edit().putBoolean("speaker", on).apply() }
+        bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(s: SeekBar?, v: Int, u: Boolean) {
+                p.edit().putInt("delay", v).apply(); refresh()
+            }
+            override fun onStartTrackingTouch(s: SeekBar?) {}
+            override fun onStopTrackingTouch(s: SeekBar?) {}
+        })
+
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(pad, pad * 2, pad, pad)
+            listOf(title, sw, only, spk, label, bar, add, list, clear, hint).forEach { addView(it) }
+        }
+        setContentView(ScrollView(this).apply { addView(col) })
+    }
+
+    override fun onActivityResult(rc: Int, res: Int, d: Intent?) {
+        super.onActivityResult(rc, res, d)
+        val uri = d?.data ?: return
+        if (rc != 7 || res != RESULT_OK) return
+        contentResolver.query(uri, arrayOf(Phone.DISPLAY_NAME, Phone.NUMBER), null, null, null)?.use {
+            if (it.moveToFirst()) {
+                val s = p.getStringSet("contacts", emptySet())!!.toMutableSet()
+                s.add("${it.getString(0)}|${it.getString(1)}")
+                p.edit().putStringSet("contacts", s).apply(); showList()
+            }
+        }
+    }
+}
