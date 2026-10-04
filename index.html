@@ -90,6 +90,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   <div class="chips" id="chips"></div>
   <form class="bar" id="form">
    <input id="inp" placeholder="Try: open youtube" autocomplete="off" aria-label="Command">
+   <button type="button" class="btn g" id="spk" title="Voice replies" aria-label="Voice replies">🔊</button>
    <button type="button" class="btn g" id="mic" title="Speak" aria-label="Voice input">🎤</button>
    <button class="btn" type="submit">Send</button>
   </form>
@@ -158,9 +159,22 @@ iframe{flex:1;border:0;background:#fff;width:100%}
  function find(name){name=name.toLowerCase().trim();return sites.filter(function(s){return s.n.toLowerCase()===name})[0]||sites.filter(function(s){return s.n.toLowerCase().indexOf(name)>-1||name.indexOf(s.n.toLowerCase())>-1})[0]}
 
  /* ---------- chat ---------- */
- var log=$("log"),listening=false,rec=null;
+ var log=$("log"),listening=false,rec=null,speaking=false,voiceOut=load("agent.voice",true),chat=[];
+ function speak(t){
+  if(!window.speechSynthesis)return;
+  try{
+   speechSynthesis.cancel();
+   var u=new SpeechSynthesisUtterance(String(t).replace(/https?:\/\/\S+/g,"link"));
+   u.lang=/[\u0900-\u097F]/.test(t)?"hi-IN":($("lang").value||"en-US");
+   speaking=true;
+   if(listening&&rec){try{rec.stop()}catch(e){}}
+   u.onend=u.onerror=function(){speaking=false;if(listening&&rec){try{rec.start()}catch(e){}}};
+   speechSynthesis.speak(u);
+  }catch(e){speaking=false}
+ }
  function say(t,who,keep){
   var d=document.createElement("div");d.className="m "+who;d.textContent=t;log.appendChild(d);log.scrollTop=log.scrollHeight;
+  if(who==="a"&&!keep&&(voiceOut||listening))speak(t);
   if(!keep){hist.push({t:t,w:who});hist=hist.slice(-60);save("agent.log",hist)}
  }
  function go(url){var w=window.open(url,"_blank","noopener");if(!w){say("Your browser blocked the new tab. Allow pop-ups for this page, then try again.","a")}}
@@ -179,7 +193,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   say(t,"u");
   var l=t.toLowerCase(),m;
   if(l==="help"||l==="?"||l==="what can you do")return say(HELP,"a");
-  if(l==="clear"){log.innerHTML="";hist=[];save("agent.log",hist);return say("Chat cleared.","a")}
+  if(l==="clear"){log.innerHTML="";hist=[];chat=[];save("agent.log",hist);return say("Chat cleared.","a")}
   if(l==="time")return say("It is "+new Date().toLocaleTimeString()+".","a");
   if(l==="date")return say("Today is "+new Date().toLocaleDateString(undefined,{weekday:"long",year:"numeric",month:"long",day:"numeric"})+".","a");
   if(l==="joke")return say(JOKES[Math.floor(Math.random()*JOKES.length)],"a");
@@ -241,7 +255,7 @@ iframe{flex:1;border:0;background:#fff;width:100%}
  }
 
  /* ---------- AI brain ---------- */
- var SYS="You are the brain of a browser-based personal agent. The user speaks Hindi, Hinglish or English. Reply with ONLY JSON, no markdown: {\"reply\":\"short friendly answer in the user's language\",\"actions\":[...]}. Action types: {\"type\":\"open\",\"url\":\"https://...\"}, {\"type\":\"search\",\"engine\":\"google|youtube|wikipedia|github|maps\",\"q\":\"...\"}, {\"type\":\"view\",\"url\":\"https://...\"}, {\"type\":\"note\",\"text\":\"...\"}, {\"type\":\"call\",\"number\":\"digits\"}, {\"type\":\"whatsapp\",\"number\":\"digits\",\"text\":\"message\"}. Use actions only when the user wants a website opened, searched, viewed, a note saved, a phone call or a WhatsApp message. Call and whatsapp only open the dialer or the WhatsApp chat; the user presses the final button. For them use a number from the saved contacts or one the user said. You cannot control other apps, so say so honestly. Saved sites: ";
+ var SYS="You are the brain of a browser-based personal agent. The user speaks Hindi, Hinglish or English. Reply with ONLY JSON, no markdown: {\"reply\":\"a natural spoken answer of 1-3 short sentences. Answer any question or chat normally, like a helpful friend. The reply is read aloud, so use no markdown, lists or emoji. If the voice language is hi-IN and the user speaks Hindi or Hinglish, answer in Hindi using Devanagari script; otherwise answer in the user's language\",\"actions\":[...]}. Action types: {\"type\":\"open\",\"url\":\"https://...\"}, {\"type\":\"search\",\"engine\":\"google|youtube|wikipedia|github|maps\",\"q\":\"...\"}, {\"type\":\"view\",\"url\":\"https://...\"}, {\"type\":\"note\",\"text\":\"...\"}, {\"type\":\"call\",\"number\":\"digits\"}, {\"type\":\"whatsapp\",\"number\":\"digits\",\"text\":\"message\"}. Use actions only when the user wants a website opened, searched, viewed, a note saved, a phone call or a WhatsApp message. Call and whatsapp only open the dialer or the WhatsApp chat; the user presses the final button. For them use a number from the saved contacts or one the user said. You cannot control other apps, so say so honestly. Saved sites: ";
  function linkMsg(items){
   var d=document.createElement("div");d.className="m a";
   items.forEach(function(it){var a=document.createElement("a");a.href=it.u;if(!/^tel:/.test(it.u)){a.target="_blank";a.rel="noopener"}a.textContent="↗ "+it.l;a.style.display="block";d.appendChild(a)});
@@ -252,11 +266,12 @@ iframe{flex:1;border:0;background:#fff;width:100%}
   if(!key)return say("Samajh nahi aaya. AI mode ke liye Sites tab mein apni Claude API key daalein, ya help likhein.","a");
   var th=document.createElement("div");th.className="m a";th.textContent="…";log.appendChild(th);log.scrollTop=log.scrollHeight;
   try{
-   var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:500,system:SYS+sites.map(function(s){return s.n+" "+s.u}).join(", ")+". Saved contacts: "+contacts.map(function(c){return c.n+" "+c.p}).join(", "),messages:[{role:"user",content:t}]})});
+   var r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:600,system:SYS+sites.map(function(s){return s.n+" "+s.u}).join(", ")+". Saved contacts: "+contacts.map(function(c){return c.n+" "+c.p}).join(", ")+". Voice language: "+$("lang").value,messages:chat.concat([{role:"user",content:t}])})});
    var j=await r.json();th.remove();
    if(!r.ok)return say("AI error: "+((j.error&&j.error.message)||r.status),"a");
    var txt=j.content.map(function(c){return c.text||""}).join("").replace(/```json|```/g,"").trim(),o;
    try{o=JSON.parse(txt)}catch(e){o={reply:txt,actions:[]}}
+   if(txt){chat.push({role:"user",content:t},{role:"assistant",content:txt});chat=chat.slice(-12)}
    say(o.reply||"Done.","a");
    var links=[];
    (o.actions||[]).forEach(function(a){
@@ -313,11 +328,14 @@ iframe{flex:1;border:0;background:#fff;width:100%}
 
  $("lang").value=load("agent.lang","hi-IN");
  $("kform").onsubmit=function(ev){ev.preventDefault();var k=$("key").value.trim();save("agent.lang",$("lang").value);if(k){try{localStorage.setItem("agent.key",k)}catch(e){}$("key").value="";say("AI mode ON. Ab jo bologe, main samajhkar karunga.","a");tab("chatPane")}};
+ function paintV(){$("spk").classList.toggle("on",voiceOut)}
+ $("spk").onclick=function(){voiceOut=!voiceOut;save("agent.voice",voiceOut);paintV();if(!voiceOut&&window.speechSynthesis)speechSynthesis.cancel()};
+ paintV();
  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
  if(SR){
   rec=new SR();rec.continuous=true;
   rec.onresult=function(e){var r=e.results[e.results.length-1];if(r.isFinal)run(r[0].transcript)};
-  rec.onend=function(){if(listening){try{rec.start()}catch(e){}}else{$("mic").classList.remove("on")}};
+  rec.onend=function(){if(listening&&!speaking){try{rec.start()}catch(e){}}else if(!listening){$("mic").classList.remove("on")}};
   $("mic").onclick=function(){
    if(listening){listening=false;rec.stop();$("mic").classList.remove("on");return}
    rec.lang=$("lang").value;listening=true;$("mic").classList.add("on");try{rec.start()}catch(e){}
