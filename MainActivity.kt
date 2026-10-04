@@ -6,7 +6,10 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import android.provider.ContactsContract.CommonDataKinds.Phone
+import android.text.Editable
+import android.text.TextWatcher
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.SeekBar
@@ -46,6 +49,21 @@ class MainActivity : Activity() {
             text = "Speaker ON after answering"; textSize = 18f
             isChecked = p.getBoolean("speaker", true); setPadding(0, pad / 2, 0, pad / 2)
         }
+        val greetSw = Switch(this).apply {
+            text = "Speak a greeting after answering"; textSize = 18f
+            isChecked = p.getBoolean("greetOn", true); setPadding(0, pad / 2, 0, pad / 2)
+        }
+        val greetEt = EditText(this).apply {
+            setText(p.getString("greet", DEFAULT_GREETING))
+            hint = "Greeting to speak"; minLines = 2
+            addTextChangedListener(object : TextWatcher {
+                override fun afterTextChanged(s: Editable?) {
+                    p.edit().putString("greet", s.toString()).apply()
+                }
+                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
+            })
+        }
         val label = TextView(this).apply { textSize = 16f; setPadding(0, pad / 2, 0, 0) }
         val bar = SeekBar(this).apply { max = 6; progress = p.getInt("delay", 3) }
         val add = Button(this).apply {
@@ -58,7 +76,7 @@ class MainActivity : Activity() {
         }
         list = TextView(this).apply { textSize = 16f; setPadding(0, pad / 2, 0, pad / 2) }
         val hint = TextView(this).apply {
-            text = "Allow phone, call log and answer-call permissions. With \"Only selected contacts\" on and an empty list, no call is answered. Keep this app unrestricted in battery settings."
+            text = "Allow phone, call log and answer-call permissions. With \"Only selected contacts\" on and an empty list, no call is answered. Keep this app unrestricted in battery settings. The greeting is played through the speaker, so the caller hears it through your phone's mic."
             textSize = 13f; setPadding(0, pad / 2, 0, 0)
         }
 
@@ -72,6 +90,7 @@ class MainActivity : Activity() {
             p.edit().putBoolean("onlySel", on).apply(); if (on) askPerms()
         }
         spk.setOnCheckedChangeListener { _, on -> p.edit().putBoolean("speaker", on).apply() }
+        greetSw.setOnCheckedChangeListener { _, on -> p.edit().putBoolean("greetOn", on).apply() }
         bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(s: SeekBar?, v: Int, u: Boolean) {
                 p.edit().putInt("delay", v).apply(); refresh()
@@ -83,7 +102,8 @@ class MainActivity : Activity() {
         val col = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(pad, pad * 2, pad, pad)
-            listOf(title, sw, only, spk, label, bar, add, list, clear, hint).forEach { addView(it) }
+            listOf(title, sw, only, spk, greetSw, greetEt, label, bar, add, list, clear, hint)
+                .forEach { addView(it) }
         }
         setContentView(ScrollView(this).apply { addView(col) })
     }
